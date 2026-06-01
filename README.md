@@ -1,69 +1,138 @@
-# 企业微信号
+<!-- Created by Yanjunhui -->
 
+# WeCom OpenFalcon Chat Sender
 
+Forward OpenFalcon alarm messages to a WeCom application.
 
----
+[中文文档](README_zh.md)
 
-## 一.申请企业号
+## Features
 
-1. 以个人邮箱申请就可以, 不通过企业认证的话,有200人的限制,一般足够用了
+- Accepts the OpenFalcon sender payload: `tos` and `content`.
+- Sends WeCom text messages through the application message API.
+- Loads credentials from `config.conf` or environment variables.
+- Requires a request token before messages can be sent.
+- Uses HTTP timeouts and explicit upstream error handling.
 
-## 二.获取对接权限
-1. 获取corpid
+## WeCom Setup
 
-  * 登录后,我的企业 ---> 企业信息  --> CorpID
-    
-  * 将 CorpID 配置到配置文件 config.conf 内 的 CorpID
-    
-   ![](images/CropID.png)
-    
-    
-2. 开启回调模式获取key
+1. Register a WeCom account.
+2. Get the `CorpID` from **My Company -> Company Info**.
+3. Create an application from **Apps -> Add App**.
+4. Copy the application `AgentId` and `Secret`.
+5. Make sure the receiver follows the WeCom account, otherwise messages may only be visible inside the WeCom app.
 
-   * 登录后,顶部菜单[企业应用] ---> 添加应用
-    
-   * 进入新添加的应用
-    
-   * 拿到 AgentId 和 Secret
-    
-    ![](images/AgentId.png)
-    
-    
-3. 使用微信关注企业号才可以从微信收到信息,否则只能从微信企业号 APP 中收到信息
-	
-	![](images/关注.png)
+## Configuration
 
-## 完成以上步骤后, 即可使用OpenFalcon发送信息,发送格式与 sender 符合:
+Create a local config file:
 
-    tos     微信用户名
-    content 信息内容
-    
-
-## OpenFalcon+ 配置:
-
-### 在falcon+的 im 配置, 注意是微信企业号内的用户名称, 而不是用户个人的个人微信号
-
-![](images/im.png)
-
-修改配置文件 https://github.com/open-falcon/falcon-plus/blob/master/modules/alarm/cfg.example.json#L25
-
-```
-"api": {
-	"im": "http://yanjunhui.com:4567/send",
-        "sms": "http://127.0.0.1:10086/sms",
-        "mail": "http://127.0.0.1:10086/mail",
-        "dashboard": "http://127.0.0.1:8081",
-        "plus_api":"http://127.0.0.1:8080",
-        "plus_api_token": "used-by-alarm-in-server-side-and-disabled-by-set-to-blank"
-    },
+```sh
+cp config.example.conf config.conf
 ```
 
-### 使用
-> 1. clone 文件 `git clone https://www.github.com/yanjunhui/chat.git`
-> 2. 打开目录 `cd chat`
-> 3. 启动 `./control.sh start`
-> 4. 停止 `./control.sh stop`
-> 5. 重启 `./control.sh restart`
-> 6. 状态 `./control.sh status`
+Edit `config.conf`:
 
+```ini
+[http]
+address = 0.0.0.0
+port = 4567
 
+[server]
+auth_token = replace-with-a-long-random-token
+
+[weixin]
+CorpID = replace-with-your-corpid
+AgentId = 1000001
+Secret = replace-with-your-secret
+```
+
+`config.conf` is ignored by Git and should not be committed.
+
+Environment variables override the file values:
+
+| Variable | Description |
+| --- | --- |
+| `CHAT_CONFIG` | Config file path. Defaults to `config.conf`. |
+| `CHAT_HTTP_ADDRESS` | HTTP bind address. |
+| `CHAT_HTTP_PORT` | HTTP bind port. |
+| `CHAT_AUTH_TOKEN` | Request token for `/send`. |
+| `WEIXIN_CORP_ID` | WeCom CorpID. |
+| `WEIXIN_AGENT_ID` | WeCom application AgentId. |
+| `WEIXIN_SECRET` | WeCom application Secret. |
+
+## Build and Run
+
+```sh
+go build -o main .
+./control.sh start
+./control.sh status
+./control.sh stop
+```
+
+For foreground testing:
+
+```sh
+go run .
+```
+
+## Send API
+
+Endpoint:
+
+```text
+GET /send?token=<auth_token>&tos=<wecom_user>&content=<message>
+POST /send
+```
+
+Parameters:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `token` | Yes | Request token. It can also be sent as `X-Chat-Token` or `Authorization: Bearer <token>`. |
+| `tos` | Yes | WeCom user ID. |
+| `content` | Yes | Text message content. |
+
+Example:
+
+```sh
+curl 'http://127.0.0.1:4567/send?token=your-token&tos=zhangsan&content=test'
+```
+
+JSON `POST` is also accepted:
+
+```sh
+curl -X POST 'http://127.0.0.1:4567/send?token=your-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"tos":"zhangsan","content":"test"}'
+```
+
+## OpenFalcon+ Configuration
+
+Set the IM endpoint to this service. The token can be embedded in the URL:
+
+```json
+{
+  "api": {
+    "im": "http://127.0.0.1:4567/send?token=your-token",
+    "sms": "http://127.0.0.1:10086/sms",
+    "mail": "http://127.0.0.1:10086/mail",
+    "dashboard": "http://127.0.0.1:8081",
+    "plus_api": "http://127.0.0.1:8080",
+    "plus_api_token": "used-by-alarm-in-server-side-and-disabled-by-set-to-blank"
+  }
+}
+```
+
+OpenFalcon should send:
+
+```text
+tos     WeCom user ID
+content Alarm content
+```
+
+## Verification
+
+```sh
+go test ./...
+go build ./...
+```

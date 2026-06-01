@@ -1,11 +1,8 @@
-module main
+module github.com/yanjunhui/chat
 
 go 1.20
 
-require (
-	github.com/labstack/echo/v4 v4.11.2
-	github.com/yanjunhui/chat v0.0.0-20221221022417-9117acc3e6e7
-)
+require github.com/labstack/echo/v4 v4.11.2
 
 require (
 	github.com/labstack/gommon v0.4.0 // indirect
